@@ -14,6 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Validate configuration.
+#if(defined(PID_INTEGRATION_SIMPSON) && defined(PID_INTEGRATION_TRAPEZOIDAL))
+    #error Integration types are mutually exclusive.
+#endif
+
 /// Constructor.
 /// @param [in] a Numerator.
 /// @param [in] b Denominator.
@@ -34,10 +39,11 @@ PID<Value_t, Time_t>::PID()
     , _min       (-1024)
     , _max       ( 1024)
     , _lastInput (0)
-    , _lastError (0)
     , _lastOutput(0)
     , _lastTime  (0)
-{}
+{
+    _previousError[0] = _previousError[1] = 0;
+}
 
 /// Destructor.
 template<typename Value_t, typename Time_t>
@@ -60,6 +66,7 @@ void PID<Value_t, Time_t>::Setup(Value_t nP, Value_t dP,
     _kI = Gain(nI, dI);
     _kD = Gain(nD, dD);
     _integral = 0;
+    _previousError[0] = _previousError[1] = 0;
 }
 /// Set minimum and maximum output value.
 /// @param [in] outMin Minimum output value.
@@ -88,7 +95,7 @@ void PID<Value_t, Time_t>::Start(Value_t input)
     _lastInput = input;
     _lastTime  = millis();
     _integral  = _lastOutput;
-    _lastError = 0;
+    _previousError[0] = _previousError[1] = 0;
 }
 /// Update output based on the current state values and setpoint.
 /// The output is clamped against the previously specified
@@ -106,12 +113,28 @@ Value_t PID<Value_t, Time_t>::Update(Value_t input)
     Value_t error = _target - input;
 
     // Perform PID computation.
-    Value_t proportional, derivative;
+    Value_t proportional, derivative, currentIntegral;
     proportional = _kP.n * error * dt / _kP.d;
     derivative   = _kD.n * (input - _lastInput) * 1000 / _kD.d;
+    Value_t sum, div;
+#if(defined(PID_INTEGRATION_SIMPSON))
+    // Simpson rule.
+    sum = _previousError[1] + 4*_previousError[0] + error;
+    div = 6000;
+    _previousError[1] = _previousError[0];
+    _previousError[0] = error;
+#elif(defined(PID_INTEGRATION_TRAPEZOIDAL))
     // Trapezoidal integration.
-    Value_t currentIntegral = _integral + (_kI.n * (error + _lastError) * dt * dt / 2000 / _kI.d);
-    
+    sum = error + _previousError[0];
+    div = 2000;
+    _previousError[0] = error;
+#else
+    // Standard integration.
+    sum = error;
+    div = 1000;
+#endif
+    currentIntegral = _integral + (_kI.n * sum * dt * dt) / (div * _kI.d);
+
     // Compute output.
     _lastOutput = (proportional + currentIntegral - derivative) / dt;
 
@@ -133,7 +156,6 @@ Value_t PID<Value_t, Time_t>::Update(Value_t input)
     
     _lastInput = input;
     _lastTime  = now;
-    _lastError = error;
     
     return _lastOutput;
 }

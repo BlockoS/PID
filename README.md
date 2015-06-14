@@ -1,7 +1,9 @@
 # Simple PID template #
 
 This is a simple template class for PID computation first intended for the Arduino and fixed-point maths.
-It features output clamping, integral anti-windup and trapezoidal integration.
+It features output clamping, integral anti-windup. Integration mechanism can be selected at compile time.
+The currently available integration schemes are : standard, trapezoidal and Simpson.
+
 Only automatic mode is supported for the moment.
 
 # Example #
@@ -19,6 +21,7 @@ unsigned long int millis()
     return now;
 }
 
+#define PID_INTEGRATION_TRAPEZOIDAL
 #include "PID.h"
 
 #define FIXED_POINT_BIAS 256

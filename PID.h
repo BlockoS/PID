@@ -30,7 +30,14 @@
 ///       may be completly broken.
 ///     * The time type. It is basically the time of the value returned
 ///       by @b millis().
+///
+/// Support for trapezoidal or Simpson integration can be activated by
+/// defining PID_INTEGRATION_TRAPEZOIDAL or PID_INTEGRATION_SIMPSON.
+/// Note that they are mutually exclusive. Standard integration is the. 
+/// default integration scheme.
+///
 /// @code
+///     #define PID_INTEGRATION_SIMPSON
 ///     #include "PID.h"
 ///     
 ///     typedef PID<int> PID_t;
@@ -136,8 +143,8 @@ class PID
         Value_t _max;
         /// Last update input value.
         Value_t _lastInput;
-        /// Last error.
-        Value_t _lastError;
+        /// Previous errors.
+        Value_t _previousError[2];
         /// Last output value.
         Value_t _lastOutput;
         /// Last time update was run.

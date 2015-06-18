@@ -50,8 +50,8 @@
 ///         PID_t::value_type output;
 ///         
 ///         pid.Setup(12,5, 3,100, 1,1);
-///         pid.SetTarget(10 * 256);
-///         pid.SetOutputBounds(-32 * 256, 32 * 256);
+///         pid.setTarget(10 * 256);
+///         pid.SetOutputLimits(-32 * 256, 32 * 256);
 ///         
 ///         input = sensor.Read();
 ///         pid.Start(input);
@@ -104,13 +104,13 @@ class PID
         /// Set minimum and maximum output value.
         /// @param [in] outMin Minimum output value.
         /// @param [in] outMax Maximum output value.
-        void SetOutputBounds(Value_t outMin, Value_t outMax);
+        void SetOutputLimits(Value_t outMin, Value_t outMax);
         /// Start PID controller.
         /// @param [in] input Start value.
         void Start(Value_t input);
         /// Update output based on the current state values and setpoint.
         /// The output is clamped against the previously specified
-        /// output bounds. Integral anti-windup is performed only if the
+        /// output limits. Integral anti-windup is performed only if the
         /// output is saturated.
         /// @param [in] input Measured value.
         /// @return Updated output value.
@@ -125,7 +125,10 @@ class PID
         Gain const& DerivativeGain() const;
         /// Get last output.
         Value_t const& LastOutput() const;
-
+        /// Get minimum output limit.
+        Value_t const& GetMinOutputLimit() const;
+        /// Get maximum output limit.
+        Value_t const& GetMaxOutputLimit() const;
     private:
         /// Proportional gain.
         Gain _kP;

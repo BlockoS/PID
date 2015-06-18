@@ -72,7 +72,7 @@ void PID<Value_t, Time_t>::Setup(Value_t nP, Value_t dP,
 /// @param [in] outMin Minimum output value.
 /// @param [in] outMax Maximum output value.
 template<typename Value_t, typename Time_t>
-void PID<Value_t, Time_t>::SetOutputBounds(Value_t outMin, Value_t outMax)
+void PID<Value_t, Time_t>::SetOutputLimits(Value_t outMin, Value_t outMax)
 {
     _min = outMin;
     _max = outMax;
@@ -99,7 +99,7 @@ void PID<Value_t, Time_t>::Start(Value_t input)
 }
 /// Update output based on the current state values and setpoint.
 /// The output is clamped against the previously specified
-/// output bounds. Integral anti-windup is performed only if the
+/// output limits. Integral anti-windup is performed only if the
 /// output is saturated.
 /// @param [in] input Measured value.
 /// @return Updated output value.
@@ -188,4 +188,16 @@ template <typename Value_t, typename Time_t>
 Value_t const& PID<Value_t, Time_t>::LastOutput() const
 {
     return _lastOutput;
+}
+/// Get minimum output limit.
+template <typename Value_t, typename Time_t>
+Value_t const& PID<Value_t, Time_t>::GetMinOutputLimit() const
+{
+    return _min;
+}
+/// Get maximum output limit.
+template <typename Value_t, typename Time_t>
+Value_t const& PID<Value_t, Time_t>::GetMaxOutputLimit() const
+{
+    return _max;
 }

@@ -31,16 +31,18 @@ PID<Value_t, Time_t>::Gain::Gain(Value_t a, Value_t b)
 /// Default constructor.
 template<typename Value_t, typename Time_t>
 PID<Value_t, Time_t>::PID()
-    : _kP        (0,1)
-    , _kI        (0,1)
-    , _kD        (0,1)
-    , _target    (0)
-    , _integral  (0)
-    , _min       (-1024)
-    , _max       ( 1024)
-    , _lastInput (0)
-    , _lastOutput(0)
-    , _lastTime  (0)
+    : _kP         (0,1)
+    , _kI         (0,1)
+    , _kD         (0,1)
+    , _target     (0)
+    , _integral   (0)
+    , _outputMin  (-1024)
+    , _outputMax  ( 1024)
+    , _integralMin(-2048)
+    , _integralMax( 2048)
+    , _lastInput  (0)
+    , _lastOutput (0)
+    , _lastTime   (0)
 {
     _previousError[0] = _previousError[1] = 0;
 }
@@ -74,10 +76,21 @@ void PID<Value_t, Time_t>::Setup(Value_t nP, Value_t dP,
 template<typename Value_t, typename Time_t>
 void PID<Value_t, Time_t>::SetOutputLimits(Value_t outMin, Value_t outMax)
 {
-    _min = outMin;
-    _max = outMax;
-    if(_lastOutput < _min) { _lastOutput = _min; }
-    else if(_lastOutput > _max) { _lastOutput = _max; }
+    _outputMin = outMin;
+    _outputMax = outMax;
+    if(_lastOutput < _outputMin) { _lastOutput = _outputMin; }
+    else if(_lastOutput > _outputMax) { _lastOutput = _outputMax; }
+}
+/// Set integral limits.
+/// @param [in] intMin Minimum integral value.
+/// @param [in] intMax Maximum integral value.
+template<typename Value_t, typename Time_t>
+void PID<Value_t, Time_t>::SetIntegralLimits(Value_t intMin, Value_t intMax)
+{
+    _integralMin = intMin;
+    _integralMax = intMax;
+    if(_integral < _integralMin) { _integral = _integralMin; }
+    else if(_integral > _integralMax) { _integral = _integralMax; }
 }
 /// Set target (setpoint).
 /// @param [in] t Target value (setpoint).
@@ -134,19 +147,21 @@ Value_t PID<Value_t, Time_t>::Update(Value_t input)
     div = 1000;
 #endif
     currentIntegral = _integral + (_kI.n * sum * dt * dt) / (div * _kI.d);
-
+    if(currentIntegral < _integralMin) { currentIntegral = _integralMin; }
+    else if(currentIntegral > _integralMax) { currentIntegral = _integralMax; }
+    
     // Compute output.
     _lastOutput = (proportional + currentIntegral - derivative) / dt;
 
     // Clamp output value and perform integral anti-windup computation.
-    if(_lastOutput < _min)
+    if(_lastOutput < _outputMin)
     {
-        _lastOutput = _min;
+        _lastOutput = _outputMin;
         if(_integral > currentIntegral) { _integral = currentIntegral; }
     }
-    else if(_lastOutput > _max)
+    else if(_lastOutput > _outputMax)
     {
-        _lastOutput = _max;
+        _lastOutput = _outputMax;
         if(_integral < currentIntegral) { _integral = currentIntegral; }
     }
     else
@@ -193,11 +208,23 @@ Value_t const& PID<Value_t, Time_t>::LastOutput() const
 template <typename Value_t, typename Time_t>
 Value_t const& PID<Value_t, Time_t>::GetMinOutputLimit() const
 {
-    return _min;
+    return _outputMin;
 }
 /// Get maximum output limit.
 template <typename Value_t, typename Time_t>
 Value_t const& PID<Value_t, Time_t>::GetMaxOutputLimit() const
 {
-    return _max;
+    return _outputMax;
+}
+/// Get minimum integral limit.
+template <typename Value_t, typename Time_t>
+Value_t const& PID<Value_t, Time_t>::GetMinIntegralLimit() const
+{
+    return _integralMin;
+}
+/// Get maximum integral limit.
+template <typename Value_t, typename Time_t>
+Value_t const& PID<Value_t, Time_t>::GetMaxIntegralLimit() const
+{
+    return _integralMax;
 }

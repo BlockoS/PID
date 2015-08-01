@@ -51,7 +51,9 @@
 ///         
 ///         pid.Setup(12,5, 3,100, 1,1);
 ///         pid.setTarget(10 * 256);
-///         pid.SetOutputLimits(-32 * 256, 32 * 256);
+///
+///         pid.SetOutputLimits  ( -32 * 256,  32 * 256);
+///         pid.SetIntegralLimits(-128 * 256, 128 * 256);
 ///         
 ///         input = sensor.Read();
 ///         pid.Start(input);
@@ -105,6 +107,10 @@ class PID
         /// @param [in] outMin Minimum output value.
         /// @param [in] outMax Maximum output value.
         void SetOutputLimits(Value_t outMin, Value_t outMax);
+        /// Set integral limits.
+        /// @param [in] intMin Minimum integral value.
+        /// @param [in] intMax Maximum integral value.
+        void SetIntegralLimits(Value_t intMin, Value_t intMax);
         /// Start PID controller.
         /// @param [in] input Start value.
         void Start(Value_t input);
@@ -129,6 +135,10 @@ class PID
         Value_t const& GetMinOutputLimit() const;
         /// Get maximum output limit.
         Value_t const& GetMaxOutputLimit() const;
+        /// Get minimum integral limit.
+        Value_t const& GetMinIntegralLimit() const;
+        /// Get maximum integral limit.
+        Value_t const& GetMaxIntegralLimit() const;
     private:
         /// Proportional gain.
         Gain _kP;
@@ -141,9 +151,13 @@ class PID
         /// Integral term.
         Value_t _integral;
         /// Minimum output value.
-        Value_t _min;
+        Value_t _outputMin;
         /// Maximum output value.
-        Value_t _max;
+        Value_t _outputMax;
+        /// Minimum integral value.
+        Value_t _integralMin;
+        /// Maximum integral value.
+        Value_t _integralMax;
         /// Last update input value.
         Value_t _lastInput;
         /// Previous errors.

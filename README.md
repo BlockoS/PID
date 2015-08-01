@@ -40,8 +40,9 @@ int main()
     
     pid.Setup(16,3, 15,8, 5,4);
     pid.SetTarget(7 * FIXED_POINT_BIAS);
-    pid.SetOutputLimits(-16 * FIXED_POINT_BIAS, 16 * FIXED_POINT_BIAS);
-
+    pid.SetOutputLimits  (-16 * FIXED_POINT_BIAS, 16 * FIXED_POINT_BIAS);
+    pid.SetIntegralLimits(-64 * FIXED_POINT_BIAS, 64 * FIXED_POINT_BIAS); 
+    
     input = 0;
     pid.Start(input);
     for(int i=0; i<iterationCount; i++)

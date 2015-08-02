@@ -7,44 +7,54 @@ The currently available integration schemes are : standard, trapezoidal and Simp
 Only automatic mode is supported for the moment.
 
 # Example #
-The following example used fixed-point PID and outputs the process value (input) in a file.
+The following example uses fixed-point PID and outputs the setpoint and process value (speed) in a file.
 ```cpp
-#include <stdio.h>
-
-#define PID_INTEGRATION_TRAPEZOIDAL
+// file: test/cruise.cpp
+#include <cstdint>
+#include <iostream>
 #include "PID.h"
 
-#define FIXED_POINT_BIAS 256
+// Fixed point bias.
+#define BIAS 256
 
-typedef PID<int> PID_t;
+typedef PID<int64_t, int64_t> PID_t;
 
 int main()
 {
-    PID_t pid;
-    int iterationCount = 100;
+    PID_t control;
     
-    PID_t::value_type input;
-    PID_t::value_type output;
+    // Vehicle mass.
+    PID_t::value_type mass      = 1000;
+    // Damping factor.
+    PID_t::value_type damping   = 50;
+    // Target speed.
+    PID_t::value_type reference = 10;
+    // Current vehicle speed.
+    PID_t::value_type speed     = 0;
+    // PID output.
+    PID_t::value_type output    = 0;
     
-    FILE *plot = fopen("plot.dat", "wb");
+    control.Setup(720,1, 40,1, 10,1, 100);
+    control.SetSetpoint(reference * BIAS);
+    control.SetOutputLimits  (      0*BIAS, 32768*BIAS);
+    control.SetIntegralLimits( -32768*BIAS, 32768*BIAS);
     
-    pid.Setup(16,3, 15,8, 5,4);
-    pid.SetSetpoint(7 * FIXED_POINT_BIAS);
-    pid.SetOutputLimits  (-16 * FIXED_POINT_BIAS, 16 * FIXED_POINT_BIAS);
-    pid.SetIntegralLimits(-64 * FIXED_POINT_BIAS, 64 * FIXED_POINT_BIAS); 
+    control.Start(speed);
     
-    input = 0;
-    pid.Start(input);
-    for(int i=0; i<iterationCount; i++)
+    for(int i=0; i<120; i++)
     {
-        output  = pid.Update(input);
-        input  += (output/2 - input) / 16;
-        fprintf(plot, "%d\t\t%f\n", i, input / (float)FIXED_POINT_BIAS);
+        // Compute PID.
+        output = control.Update(speed);
+        // Compute speed.
+        speed += (output - damping*speed) * control.GetSamplingTime() / mass / 1000;
+    
+        // Output speed and setpoint.
+        std::cout << i << '\t' << (speed / (float)BIAS) << '\t';
+        std::cout << (control.GetSetpoint() / (float)BIAS) << std::endl;
     }
 
-    fclose(plot);
+    return 0;
 }
-
 ```
 The generated file is then used to produce the following plot with Gnuplot.
 ![](http://blockos.org/mooz/input.png) 

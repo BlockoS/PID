@@ -57,7 +57,7 @@ int main()
 }
 ```
 The generated file is then used to produce the following plot with Gnuplot.
-![](https://www.blockos.org/mooz/input.png) 
+![](http://www.blockos.org/mooz/input.png) 
 
 # License #
 

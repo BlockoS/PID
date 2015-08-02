@@ -19,6 +19,13 @@
     #error Integration types are mutually exclusive.
 #endif
 
+// Saturate value.
+#define saturate(value, minimum, maximum) \
+do { \
+    if      (value < minimum) { value = minimum; } \
+    else if (value > maximum) { value = maximum; } \
+} while(0);
+
 /// Constructor.
 /// @param [in] a Numerator.
 /// @param [in] b Denominator.
@@ -34,7 +41,7 @@ PID<Value_t, Time_t>::PID()
     : _kP         (0,1)
     , _kI         (0,1)
     , _kD         (0,1)
-    , _target     (0)
+    , _setpoint   (0)
     , _integral   (0)
     , _outputMin  (-1024)
     , _outputMax  ( 1024)
@@ -42,7 +49,7 @@ PID<Value_t, Time_t>::PID()
     , _integralMax( 2048)
     , _lastInput  (0)
     , _lastOutput (0)
-    , _lastTime   (0)
+    , _dt         (100)
 {
     _previousError[0] = _previousError[1] = 0;
 }
@@ -59,14 +66,18 @@ PID<Value_t, Time_t>::~PID()
 /// @param [in] dI Integral gain denominator.
 /// @param [in] nD Derivative gain numerator.
 /// @param [in] dD Derivative gain denominato.
+/// @param [in] dt Sampling time (default: 100ms).
 template<typename Value_t, typename Time_t>
 void PID<Value_t, Time_t>::Setup(Value_t nP, Value_t dP,
                                  Value_t nI, Value_t dI,
-                                 Value_t nD, Value_t dD)
+                                 Value_t nD, Value_t dD,
+                                 Time_t  dt)
 {
-    _kP = Gain(nP, dP);
-    _kI = Gain(nI, dI);
-    _kD = Gain(nD, dD);
+    // Premultiply gains by sampling time.
+    _kP = Gain(   dt*nP, dP);
+    _kI = Gain(dt*dt*nI, dI);
+    _kD = Gain(      nD, dD);
+    _dt = dt;
     _integral = 0;
     _previousError[0] = _previousError[1] = 0;
 }
@@ -78,8 +89,7 @@ void PID<Value_t, Time_t>::SetOutputLimits(Value_t outMin, Value_t outMax)
 {
     _outputMin = outMin;
     _outputMax = outMax;
-    if(_lastOutput < _outputMin) { _lastOutput = _outputMin; }
-    else if(_lastOutput > _outputMax) { _lastOutput = _outputMax; }
+    saturate(_lastOutput, _outputMin, _outputMax);
 }
 /// Set integral limits.
 /// @param [in] intMin Minimum integral value.
@@ -87,17 +97,18 @@ void PID<Value_t, Time_t>::SetOutputLimits(Value_t outMin, Value_t outMax)
 template<typename Value_t, typename Time_t>
 void PID<Value_t, Time_t>::SetIntegralLimits(Value_t intMin, Value_t intMax)
 {
-    _integralMin = intMin;
-    _integralMax = intMax;
-    if(_integral < _integralMin) { _integral = _integralMin; }
-    else if(_integral > _integralMax) { _integral = _integralMax; }
+    // Premultiply by dt squared.
+    Time_t dt2 = _dt*_dt;
+    _integralMin = intMin * dt2;
+    _integralMax = intMax * dt2;
+    saturate(_integral, _integralMin, _integralMax);
 }
-/// Set target (setpoint).
-/// @param [in] t Target value (setpoint).
+/// Set setpoint.
+/// @param [in] s Setpoint.
 template<typename Value_t, typename Time_t>
-void PID<Value_t, Time_t>::SetTarget(Value_t const& t)
+void PID<Value_t, Time_t>::SetSetpoint(Value_t const& s)
 {
-    _target   = t;
+    _setpoint = s;
     _integral = 0;
 }
 /// Start PID controller.
@@ -106,7 +117,6 @@ template<typename Value_t, typename Time_t>
 void PID<Value_t, Time_t>::Start(Value_t input)
 {
     _lastInput = input;
-    _lastTime  = millis();
     _integral  = _lastOutput;
     _previousError[0] = _previousError[1] = 0;
 }
@@ -119,16 +129,15 @@ void PID<Value_t, Time_t>::Start(Value_t input)
 template<typename Value_t, typename Time_t>
 Value_t PID<Value_t, Time_t>::Update(Value_t input)
 {
-    // Elapsed time since last update.
-    Value_t now = static_cast<Value_t>(millis());
-    Value_t dt  = now - _lastTime;
-    // Error between input value and target value.
-    Value_t error = _target - input;
+    // Error between input value and setpoint.
+    Value_t error = _setpoint - input;
 
     // Perform PID computation.
-    Value_t proportional, derivative, currentIntegral;
-    proportional = _kP.n * error * dt / _kP.d;
+    Value_t proportional, derivative;
+    proportional = _kP.n * error / _kP.d;
     derivative   = _kD.n * (input - _lastInput) * 1000 / _kD.d;
+    _lastInput = input;
+    
     Value_t sum, div;
 #if(defined(PID_INTEGRATION_SIMPSON))
     // Simpson rule.
@@ -146,32 +155,13 @@ Value_t PID<Value_t, Time_t>::Update(Value_t input)
     sum = error;
     div = 1000;
 #endif
-    currentIntegral = _integral + (_kI.n * sum * dt * dt) / (div * _kI.d);
-    if(currentIntegral < _integralMin) { currentIntegral = _integralMin; }
-    else if(currentIntegral > _integralMax) { currentIntegral = _integralMax; }
+    _integral += (_kI.n * sum) / (div * _kI.d);
+    saturate(_integral, _integralMin, _integralMax);
     
     // Compute output.
-    _lastOutput = (proportional + currentIntegral - derivative) / dt;
+    _lastOutput = (proportional + _integral - derivative) / _dt;
+    saturate(_lastOutput, _outputMin, _outputMax);
 
-    // Clamp output value and perform integral anti-windup computation.
-    if(_lastOutput < _outputMin)
-    {
-        _lastOutput = _outputMin;
-        if(_integral > currentIntegral) { _integral = currentIntegral; }
-    }
-    else if(_lastOutput > _outputMax)
-    {
-        _lastOutput = _outputMax;
-        if(_integral < currentIntegral) { _integral = currentIntegral; }
-    }
-    else
-    {
-        _integral = currentIntegral;
-    }
-    
-    _lastInput = input;
-    _lastTime  = now;
-    
     return _lastOutput;
 }
 /// Stop PID controller.
@@ -184,13 +174,13 @@ void PID<Value_t, Time_t>::Stop()
 template <typename Value_t, typename Time_t>
 typename PID<Value_t, Time_t>::Gain const& PID<Value_t, Time_t>::ProportionalGain() const
 {
-    return _kP;
+    return Gain(_kP.n/_dt, _kP.d);
 }
 /// Get proportional gain.
 template <typename Value_t, typename Time_t>
 typename PID<Value_t, Time_t>::Gain const& PID<Value_t, Time_t>::IntegralGain() const
 {
-    return _kI;
+    return Gain(_kI.n/(_dt*_dt), _kI.d);
 }
 /// Get proportional gain.
 template <typename Value_t, typename Time_t>
@@ -227,4 +217,16 @@ template <typename Value_t, typename Time_t>
 Value_t const& PID<Value_t, Time_t>::GetMaxIntegralLimit() const
 {
     return _integralMax;
+}
+/// Get setpoint.
+template <typename Value_t, typename Time_t>
+Value_t const& PID<Value_t, Time_t>::GetSetpoint() const
+{
+    return _setpoint;
+}
+/// Get sampling time.
+template <typename Value_t, typename Time_t>
+Time_t const& PID<Value_t, Time_t>::GetSamplingTime() const
+{
+    return _dt;
 }

@@ -11,16 +11,6 @@ The following example used fixed-point PID and outputs the process value (input)
 ```cpp
 #include <stdio.h>
 
-// This is a dummy "clock". The time is increased by 100ms every call.
-unsigned long int millis()
-{
-    static const unsigned long int deltaTime = 100;
-    static unsigned long int clock = 0;
-    unsigned long int now = clock;
-    clock += deltaTime;
-    return now;
-}
-
 #define PID_INTEGRATION_TRAPEZOIDAL
 #include "PID.h"
 
@@ -39,7 +29,7 @@ int main()
     FILE *plot = fopen("plot.dat", "wb");
     
     pid.Setup(16,3, 15,8, 5,4);
-    pid.SetTarget(7 * FIXED_POINT_BIAS);
+    pid.SetSetpoint(7 * FIXED_POINT_BIAS);
     pid.SetOutputLimits  (-16 * FIXED_POINT_BIAS, 16 * FIXED_POINT_BIAS);
     pid.SetIntegralLimits(-64 * FIXED_POINT_BIAS, 64 * FIXED_POINT_BIAS); 
     

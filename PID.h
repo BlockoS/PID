@@ -17,12 +17,7 @@
 #ifndef PID_H
 #define PID_H
 
-/// Simple PID controller template.
-/// This class is intended to be used under the Arduino environement.
-/// Neverless if you want to use elsewhere, you must provide an
-/// an implementation of the @b millis() function. This function
-/// returns the number of millisecondes elapsed since the beginning of
-/// operations.
+/// Simple PID controller template with fixed sampling time.
 ///
 /// The template parameters are:
 ///     * The value type. It can be a @b float or an @b long int. Keep in
@@ -49,8 +44,8 @@
 ///         
 ///         PID_t::value_type output;
 ///         
-///         pid.Setup(12,5, 3,100, 1,1);
-///         pid.setTarget(10 * 256);
+///         pid.Setup(12,5, 3,100, 1,1, 100);
+///         pid.SetSetpoint(10 * 256);
 ///
 ///         pid.SetOutputLimits  ( -32 * 256,  32 * 256);
 ///         pid.SetIntegralLimits(-128 * 256, 128 * 256);
@@ -60,6 +55,7 @@
 ///         
 ///         while(1)
 ///         {
+///             delay(100);
 ///             input = sensor.Read();
 ///             output = pid.Update(input);
 ///             device.doSomething(output);
@@ -97,12 +93,14 @@ class PID
         /// @param [in] dI Integral gain denominator.
         /// @param [in] nD Derivative gain numerator.
         /// @param [in] dD Derivative gain denominato.
+        /// @param [in] dt Sampling period (default: 100ms).
         void Setup(Value_t nP, Value_t dP,
                    Value_t nI, Value_t dI,
-                   Value_t nD, Value_t dD);
-        /// Set target (setpoint).
-        /// @param [in] t Target value (setpoint).
-        void SetTarget(Value_t const& t);
+                   Value_t nD, Value_t dD, 
+                   Time_t dt = 100);
+        /// Set setpoint.
+        /// @param [in] s Setpoint.
+        void SetSetpoint(Value_t const& s);
         /// Set minimum and maximum output value.
         /// @param [in] outMin Minimum output value.
         /// @param [in] outMax Maximum output value.
@@ -139,6 +137,10 @@ class PID
         Value_t const& GetMinIntegralLimit() const;
         /// Get maximum integral limit.
         Value_t const& GetMaxIntegralLimit() const;
+        /// Get setpoint.
+        Value_t const& GetSetpoint() const;
+        /// Get sampling time (in milliseconds).
+        Time_t const& GetSamplingTime() const;
     private:
         /// Proportional gain.
         Gain _kP;
@@ -146,8 +148,8 @@ class PID
         Gain _kI;
         /// Derivative gain.
         Gain _kD;
-        /// Target value (setpoint)
-        Value_t _target;
+        /// Setpoint
+        Value_t _setpoint;
         /// Integral term.
         Value_t _integral;
         /// Minimum output value.
@@ -164,8 +166,8 @@ class PID
         Value_t _previousError[2];
         /// Last output value.
         Value_t _lastOutput;
-        /// Last time update was run.
-        Value_t _lastTime;
+        /// Sampling time (in milliseconds)..
+        Time_t _dt;
 };
 
 #include "PID.inl"

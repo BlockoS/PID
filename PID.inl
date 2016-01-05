@@ -22,8 +22,8 @@
 // Saturate value.
 #define saturate(value, minimum, maximum) \
 do { \
-    if      (value < minimum) { value = minimum; } \
-    else if (value > maximum) { value = maximum; } \
+    if (value < minimum) { value = minimum; } \
+    if (value > maximum) { value = maximum; } \
 } while(0);
 
 /// Constructor.
